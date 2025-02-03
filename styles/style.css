@@ -1,0 +1,80 @@
+/* style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.container, .login-container {
+    max-width: 400px;
+    margin: 100px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.container {
+    max-width: 75%;
+    overflow-x: auto; /* Adiciona barra de rolagem horizontal se necessário */
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+input, select, button {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    background-color: #22209c;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #555e92;
+}
+
+.links {
+    margin-top: 20px;
+    text-align: center;
+    display: flex;
+    justify-content: space-around;
+}
+
+.links a {
+    color: #555e92;
+    text-decoration: none;
+}
+
+.links a:hover {
+    text-decoration: underline;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    word-wrap: break-word; /* Permite quebra de linha dentro das células */
+    max-width: 200px; /* Define uma largura máxima para as colunas */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adiciona reticências (...) para texto que ultrapassa a largura máxima */
+    white-space: nowrap; /* Impede quebra de linha automática */
+}
+
+table th {
+    background-color: #f2f2f2;
+}
