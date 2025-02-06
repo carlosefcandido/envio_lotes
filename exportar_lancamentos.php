@@ -14,7 +14,8 @@ $conn = conectar();
 $query_totais = "SELECT t.nome_tipo, SUM(m.valor) as total_valor 
                  FROM movimento m 
                  JOIN tipo_pagamento t ON m.id_tipo = t.id_tipo 
-                 WHERE DATE(m.data_salvo) BETWEEN ? AND ? 
+                 WHERE DATE(m.data_salvo) BETWEEN ? AND ?
+                 AND m.enviado = 0
                  GROUP BY t.nome_tipo";
 $stmt_totais = $conn->prepare($query_totais);
 $stmt_totais->bind_param("ss", $data_inicio, $data_fim);
@@ -28,6 +29,7 @@ $query_lancamentos = "SELECT m.data_salvo, m.lote, t.nome_tipo, m.valor, u.nome 
                       JOIN usuario u ON m.id_usuario = u.id_usuario 
                       LEFT JOIN banco b ON m.id_banco = b.id_banco 
                       WHERE DATE(m.data_salvo) BETWEEN ? AND ? 
+                      AND m.enviado = 0
                       ORDER BY m.data_salvo DESC";
 $stmt_lancamentos = $conn->prepare($query_lancamentos);
 $stmt_lancamentos->bind_param("ss", $data_inicio, $data_fim);
@@ -48,7 +50,7 @@ while ($row = $result_totais->fetch_assoc()) {
 echo mb_convert_encoding("\n", 'UTF-8');
 
 // Escrever os lançamentos diários
-echo mb_convert_encoding("Lançamentos Diários\n", 'UTF-8');
+echo mb_convert_encoding("Lancamentos Diarios\n", 'UTF-8');
 echo mb_convert_encoding("Data e Hora\tLote\tTipo\tBanco\tValor\tOperador\n", 'UTF-8');
 while ($row = $result_lancamentos->fetch_assoc()) {
     $data_hora_formatada = date('d/m/Y H:i:s', strtotime($row['data_salvo']));

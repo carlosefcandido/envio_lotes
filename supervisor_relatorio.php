@@ -43,6 +43,27 @@ function getTotaisPorTipo($data_inicio = null, $data_fim = null) {
     return $stmt->get_result();
 }
 
+function getTotaisPorTipoEBanco($data_inicio = null, $data_fim = null) {
+    $conn = conectar();
+    $sql = "SELECT t.nome_tipo, b.nome_banco, SUM(m.valor) as total_valor 
+            FROM movimento m 
+            JOIN tipo_pagamento t ON m.id_tipo = t.id_tipo 
+            LEFT JOIN banco b ON m.id_banco = b.id_banco";
+    
+    if ($data_inicio && $data_fim) {
+        $sql .= " WHERE DATE(m.data_salvo) BETWEEN ? AND ?";
+    }
+    
+    $sql .= " GROUP BY t.nome_tipo, b.nome_banco";
+    
+    $stmt = $conn->prepare($sql);
+    if ($data_inicio && $data_fim) {
+        $stmt->bind_param("ss", $data_inicio, $data_fim);
+    }
+    $stmt->execute();
+    return $stmt->get_result();
+}
+
 // Lida com a solicitação AJAX para atualizar a tabela
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_inicio']) && isset($_POST['data_fim'])) {
     $data_inicio = $_POST['data_inicio'] ?? null;

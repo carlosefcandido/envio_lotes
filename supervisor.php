@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_inicio']) && isse
     $data_inicio = $_POST['data_inicio'] ?? null;
     $data_fim = $_POST['data_fim'] ?? null;
 
-    $totais = getTotaisPorTipo($data_inicio, $data_fim);
+    $totaisPorTipo = getTotaisPorTipo($data_inicio, $data_fim);
+    $totaisPorTipoEBanco = getTotaisPorTipoEBanco($data_inicio, $data_fim);
     $result = getRelatorio($data_inicio, $data_fim);
 
     $response = [
@@ -19,14 +20,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_inicio']) && isse
     ];
 
     // Exibir totais por tipo de pagamento
-    if ($totais->num_rows > 0) {
+    if ($totaisPorTipo->num_rows > 0) {
         $response['totais'] .= "<h3>Totais por Tipo de Pagamento</h3>";
         $response['totais'] .= "<table id='tabelaTotais'>";
         $response['totais'] .= "<thead><tr><th>Tipo de Pagamento</th><th>Total</th></tr></thead>";
         $response['totais'] .= "<tbody>";
-        while ($row = $totais->fetch_assoc()) {
+        while ($row = $totaisPorTipo->fetch_assoc()) {
             $response['totais'] .= "<tr>";
             $response['totais'] .= "<td>" . $row['nome_tipo'] . "</td>";
+            $response['totais'] .= "<td>R$ " . number_format($row['total_valor'], 2, ',', '.') . "</td>";
+            $response['totais'] .= "</tr>";
+        }
+        $response['totais'] .= "</tbody></table>";
+    }
+
+    // Exibir totais por tipo de pagamento e banco
+    if ($totaisPorTipoEBanco->num_rows > 0) {
+        $response['totais'] .= "<h3>Totais por Tipo de Pagamento e Banco</h3>";
+        $response['totais'] .= "<table id='tabelaTotaisPorBanco'>";
+        $response['totais'] .= "<thead><tr><th>Tipo de Pagamento</th><th>Banco</th><th>Total</th></tr></thead>";
+        $response['totais'] .= "<tbody>";
+        while ($row = $totaisPorTipoEBanco->fetch_assoc()) {
+            $response['totais'] .= "<tr>";
+            $response['totais'] .= "<td>" . $row['nome_tipo'] . "</td>";
+            $response['totais'] .= "<td>" . $row['nome_banco'] . "</td>";
             $response['totais'] .= "<td>R$ " . number_format($row['total_valor'], 2, ',', '.') . "</td>";
             $response['totais'] .= "</tr>";
         }

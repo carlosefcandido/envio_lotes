@@ -7,6 +7,8 @@ verificaLogin();
 $id_usuario = $_SESSION['usuario']['id_usuario'];
 $nome_usuario = $_SESSION['usuario']['nome'];
 
+echo $id_usuario;
+
 $message = '';
 $messageType = ''; // Variável para armazenar o tipo de mensagem (sucesso ou erro)
 
@@ -83,6 +85,7 @@ $totais = getTotaisPorTipo($id_usuario, $data_inicio, $data_fim);
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Controle de Lotes - Operador</title>
     <link rel="stylesheet" href="./styles/style.css">
     <script>
