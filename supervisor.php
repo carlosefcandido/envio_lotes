@@ -153,6 +153,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_inicio']) && isse
     </style>
 </head>
 <body>
+    <div class="menu">
+        <a href="supervisor.php">Lote</a>
+        <a href="provisao_supervisor.php">Provisão</a>
+    </div>
     <div class="container">
         <div class="login-message">
             Bem-vindo, <?php echo htmlspecialchars($nome_usuario); ?>! Você está logado como supervisor.

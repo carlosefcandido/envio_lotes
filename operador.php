@@ -7,8 +7,6 @@ verificaLogin();
 $id_usuario = $_SESSION['usuario']['id_usuario'];
 $nome_usuario = $_SESSION['usuario']['nome'];
 
-echo $id_usuario;
-
 $message = '';
 $messageType = ''; // Variável para armazenar o tipo de mensagem (sucesso ou erro)
 
@@ -139,6 +137,10 @@ $totais = getTotaisPorTipo($id_usuario, $data_inicio, $data_fim);
             showAlert('<?php echo $message; ?>', '<?php echo $messageType; ?>');
         </script>
     <?php endif; ?>
+    <div class="menu">
+        <a href="operador.php">Lote</a>
+        <a href="provisao.php">Provisão</a>
+    </div>
     <div class="container">
         <div class="login-message">
             Bem-vindo, <?php echo htmlspecialchars($nome_usuario); ?>! Você está logado como operador.
