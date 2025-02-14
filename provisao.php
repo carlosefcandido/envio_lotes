@@ -1,33 +1,30 @@
 <?php
 // filepath: /c:/wamp64/www/envio_lotes/provisao.php
 
-// Inclui o arquivo de conexão com o banco de dados
 include_once('conexao.php');
 include_once('auth.php');
 
-// Verifica se o usuário está logado
 verificaLogin();
 
-// Obtém o nome do usuário logado e o ID do usuário
 $id_usuario = $_SESSION['usuario']['id_usuario'];
 $nome_usuario = $_SESSION['usuario']['nome'];
 
-// Verifica se o formulário foi enviado
+// Processa o lançamento se o formulário for enviado
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tipo_provisao'])) {
+    // Agora o valor de tipo_provisao será o ID vindo da tabela tipo_provisao
     $tipo_provisao = $_POST['tipo_provisao'];
     $id_banco = $_POST['id_banco'];
     $valor = $_POST['valor'];
-    $data_folha = $_POST['data_folha'] ?? null;
-
-    // Conecta ao banco de dados
+    // O campo data_folha é opcional, podendo vir vazio
+    $data_folha = !empty($_POST['data_folha']) ? $_POST['data_folha'] : null;
+    
     $conn = conectar();
-
-    // Insere os dados no banco de dados
-    if ($tipo_provisao === 'Folha') {
-        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, tipo_provisao, data_folha) VALUES (?, ?, ?, ?, ?)');
+    // Se o tipo for "Folha de Pagamento" (assumindo que seu id na tabela tipo_provisao seja 3)
+    if ($tipo_provisao == 3) {
+        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao, data_folha) VALUES (?, ?, ?, ?, ?)');
         $stmt->bind_param('idiss', $id_banco, $valor, $id_usuario, $tipo_provisao, $data_folha);
     } else {
-        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, tipo_provisao) VALUES (?, ?, ?, ?)');
+        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao) VALUES (?, ?, ?, ?)');
         $stmt->bind_param('idis', $id_banco, $valor, $id_usuario, $tipo_provisao);
     }
 
@@ -38,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tipo_provisao'])) {
         $message = 'Erro ao salvar provisão.';
         $messageType = 'error';
     }
-
+    
     $stmt->close();
     $conn->close();
 }
@@ -50,15 +47,27 @@ $data_fim = $_POST['data_fim'] ?? date('Y-m-d');
 // Conecta ao banco de dados
 $conn = conectar();
 
-// Consulta os totais por tipo de provisão, exceto Folha de Pagamento
-$query_totais = 'SELECT tipo_provisao, b.nome_banco, SUM(p.valor) AS total_valor FROM provisao p JOIN banco b ON p.id_banco = b.id_banco WHERE p.id_usuario = ? AND tipo_provisao != "Folha" AND DATE(p.data_salvo) BETWEEN ? AND ? GROUP BY tipo_provisao, b.nome_banco';
+// Atualize a consulta dos totais por tipo de provisão:
+$query_totais = "SELECT t.nome_tipo AS tipo_provisao, b.nome_banco, SUM(p.valor) AS total_valor
+                 FROM provisao p
+                 JOIN banco b ON p.id_banco = b.id_banco
+                 JOIN tipo_provisao t ON p.id_tipo_provisao = t.id_tipo_provisao
+                 WHERE p.id_usuario = ? 
+                 AND t.nome_tipo != 'Folha'
+                 AND DATE(p.data_salvo) BETWEEN ? AND ?
+                 GROUP BY t.nome_tipo, b.nome_banco";
 $stmt_totais = $conn->prepare($query_totais);
 $stmt_totais->bind_param('iss', $id_usuario, $data_inicio, $data_fim);
 $stmt_totais->execute();
 $totais = $stmt_totais->get_result();
 
-// Consulta todas as provisões individuais
-$query_individuais = 'SELECT p.data_salvo, p.data_folha, tipo_provisao, b.nome_banco, p.valor FROM provisao p JOIN banco b ON p.id_banco = b.id_banco WHERE p.id_usuario = ? AND DATE(p.data_salvo) BETWEEN ? AND ?';
+// Atualize a consulta das provisões individuais:
+$query_individuais = "SELECT p.data_salvo, p.data_folha, t.nome_tipo AS tipo_provisao, b.nome_banco, p.valor
+                      FROM provisao p
+                      JOIN banco b ON p.id_banco = b.id_banco
+                      JOIN tipo_provisao t ON p.id_tipo_provisao = t.id_tipo_provisao
+                      WHERE p.id_usuario = ? 
+                      AND DATE(p.data_salvo) BETWEEN ? AND ?";
 $stmt_individuais = $conn->prepare($query_individuais);
 $stmt_individuais->bind_param('iss', $id_usuario, $data_inicio, $data_fim);
 $stmt_individuais->execute();
@@ -128,14 +137,26 @@ $conn->close();
             <a href="logout.php" class="logout-link">Deslogar</a>
         </div>
 
-        <!-- Formulário para digitação de provisões -->
-        <h2>Pagamentos do Dia</h2>
+        <!-- Formulário para lançamento da provisão -->
+        <h2>Inserir Provisão</h2>
         <form method="POST" action="provisao.php">
-            <input type="hidden" name="tipo_provisao" value="Pagamento do Dia">
-            <select name="id_banco" required>
+            <label for="tipo_provisao">Tipo de Provisão:</label>
+            <select name="tipo_provisao" id="tipo_provisao" required>
+                <option value="">Selecione a provisão</option>
+                <?php
+                $conn = conectar();
+                $tipos = $conn->query('SELECT * FROM tipo_provisao');
+                while ($tipo = $tipos->fetch_assoc()) {
+                    echo "<option value='{$tipo['id_tipo_provisao']}'>{$tipo['nome_tipo']}</option>";
+                }
+                $conn->close();
+                ?>
+            </select>
+            
+            <label for="id_banco">Banco:</label>
+            <select name="id_banco" id="id_banco" required>
                 <option value="">Selecione o banco</option>
                 <?php
-                // Conecta ao banco de dados
                 $conn = conectar();
                 $bancos = $conn->query('SELECT * FROM banco WHERE nome_banco IN ("Itaú", "Bradesco")');
                 while ($banco = $bancos->fetch_assoc()) {
@@ -144,48 +165,31 @@ $conn->close();
                 $conn->close();
                 ?>
             </select>
-            <input type="number" step="0.01" name="valor" placeholder="Valor" required>
+            
+            <label for="valor">Valor:</label>
+            <input type="number" step="0.01" name="valor" id="valor" placeholder="Valor" required>
+            
+            <!-- Campo de data que será exibido apenas para "Folha de Pagamento" -->
+            <div id="campoDataFolha" style="display: none;">
+                <label for="data_folha">Data da Folha:</label>
+                <input type="date" name="data_folha" id="data_folha">
+            </div>
+            
             <button type="submit">Salvar</button>
         </form>
 
-        <h2>DDA</h2>
-        <form method="POST" action="provisao.php">
-            <input type="hidden" name="tipo_provisao" value="DDA">
-            <select name="id_banco" required>
-                <option value="">Selecione o banco</option>
-                <?php
-                // Conecta ao banco de dados
-                $conn = conectar();
-                $bancos = $conn->query('SELECT * FROM banco WHERE nome_banco IN ("Itaú", "Bradesco")');
-                while ($banco = $bancos->fetch_assoc()) {
-                    echo "<option value='{$banco['id_banco']}'>{$banco['nome_banco']}</option>";
-                }
-                $conn->close();
-                ?>
-            </select>
-            <input type="number" step="0.01" name="valor" placeholder="Valor" required>
-            <button type="submit">Salvar</button>
-        </form>
-
-        <h2>Folha de Pagamento</h2>
-        <form method="POST" action="provisao.php">
-            <input type="hidden" name="tipo_provisao" value="Folha">
-            <select name="id_banco" required>
-                <option value="">Selecione o banco</option>
-                <?php
-                // Conecta ao banco de dados
-                $conn = conectar();
-                $bancos = $conn->query('SELECT * FROM banco WHERE nome_banco IN ("Itaú", "Bradesco")');
-                while ($banco = $bancos->fetch_assoc()) {
-                    echo "<option value='{$banco['id_banco']}'>{$banco['nome_banco']}</option>";
-                }
-                $conn->close();
-                ?>
-            </select>
-            <input type="date" name="data_folha" required>
-            <input type="number" step="0.01" name="valor" placeholder="Valor" required>
-            <button type="submit">Salvar</button>
-        </form>
+        <script>
+        // Exibe o campo de data quando o tipo selecionado for "Folha de Pagamento"
+        document.getElementById('tipo_provisao').addEventListener('change', function() {
+            var selectedText = this.options[this.selectedIndex].text;
+            if (selectedText.trim() === 'Folha de Pagamento') {
+                document.getElementById('campoDataFolha').style.display = 'block';
+            } else {
+                document.getElementById('campoDataFolha').style.display = 'none';
+                document.getElementById('data_folha').value = '';
+            }
+        });
+        </script>
 
         <!-- Formulário para filtrar lançamentos -->
         <h2>Filtrar Lançamentos</h2>

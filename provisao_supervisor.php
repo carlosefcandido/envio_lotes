@@ -62,16 +62,26 @@ if ($totaisFolha->num_rows > 0) {
 if ($provisoesDoDia->num_rows > 0) {
     $response['provisoes'] .= "<h3>Provisões do Dia</h3>";
     $response['provisoes'] .= "<table id='tabelaProvisoesDoDia'>";
-    $response['provisoes'] .= "<thead><tr><th>Usuário</th><th>Tipo de Provisão</th><th>Valor</th><th>Data</th><th>Data da Folha</th><th>Banco</th></tr></thead>";
+    // Novo cabeçalho conforme a nova ordem
+    $response['provisoes'] .= "<thead><tr>
+        <th>Data</th>
+        <th>Tipo de Provisão</th>
+        <th>Banco</th>
+        <th>Data da Folha</th>
+        <th>Valor</th>
+        <th>Usuário</th>
+    </tr></thead>";
     $response['provisoes'] .= "<tbody>";
     while ($row = $provisoesDoDia->fetch_assoc()) {
+        $data_folha = !empty($row['data_folha']) ? date('d/m/Y', strtotime($row['data_folha'])) : '-';
         $response['provisoes'] .= "<tr>";
-        $response['provisoes'] .= "<td>" . htmlspecialchars($row['nome_usuario']) . "</td>";
-        $response['provisoes'] .= "<td>" . htmlspecialchars($row['tipo_provisao']) . "</td>";
-        $response['provisoes'] .= "<td>R$ " . number_format($row['valor'], 2, ',', '.') . "</td>";
+        // Nova ordem dos dados:
         $response['provisoes'] .= "<td>" . date('d/m/Y H:i:s', strtotime($row['data_salvo'])) . "</td>";
-        $response['provisoes'] .= "<td>" . date('d/m/Y', strtotime($row['data_folha'])) . "</td>";
+        $response['provisoes'] .= "<td>" . htmlspecialchars($row['tipo_provisao']) . "</td>";
         $response['provisoes'] .= "<td>" . htmlspecialchars($row['nome_banco']) . "</td>";
+        $response['provisoes'] .= "<td>" . $data_folha . "</td>";
+        $response['provisoes'] .= "<td>R$ " . number_format($row['valor'], 2, ',', '.') . "</td>";
+        $response['provisoes'] .= "<td>" . htmlspecialchars($row['nome_usuario']) . "</td>";
         $response['provisoes'] .= "</tr>";
     }
     $response['provisoes'] .= "</tbody></table>";
@@ -80,6 +90,9 @@ if ($provisoesDoDia->num_rows > 0) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     echo json_encode($response);
     exit;
+}else {
+    $data_inicio = date('Y-m-d');
+    $data_fim = date('Y-m-d');
 }
 ?>
 <!DOCTYPE html>
@@ -124,8 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
         <h2>Relatório de Provisões</h2>
         <form method="POST" action="provisao_supervisor.php">
-            <input type="date" name="data_inicio" value="<?php echo $data_inicio; ?>">
-            <input type="date" name="data_fim" value="<?php echo $data_fim; ?>">
+            <input type="date" name="data_inicio" value="<?php echo date('Y-m-d'); ?>">
+            <input type="date" name="data_fim" value="<?php echo date('Y-m-d'); ?>">
             <button type="submit">Filtrar</button>
         </form>
         <div id="totaisContainer">
