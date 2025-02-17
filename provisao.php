@@ -6,6 +6,18 @@ include_once('auth.php');
 
 verificaLogin();
 
+// Inicia a sessão se ainda não estiver iniciada (caso o auth.php não o faça)
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Recupera mensagem de flash, se existir
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    $messageType = $_SESSION['messageType'];
+    unset($_SESSION['message'], $_SESSION['messageType']);
+}
+
 $id_usuario = $_SESSION['usuario']['id_usuario'];
 $nome_usuario = $_SESSION['usuario']['nome'];
 
@@ -72,15 +84,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tipo_provisao'])) {
     }
     
     if ($stmt->execute()) {
-        $message = isset($id_provisao) ? "Provisão atualizada com sucesso!" : "Provisão salva com sucesso!";
-        $messageType = "success";
+        $_SESSION['message'] = isset($id_provisao) ? "Provisão atualizada com sucesso!" : "Provisão salva com sucesso!";
+        $_SESSION['messageType'] = "success";
     } else {
-        $message = isset($id_provisao) ? "Erro ao atualizar provisão." : "Erro ao salvar provisão.";
-        $messageType = "error";
+        $_SESSION['message'] = isset($id_provisao) ? "Erro ao atualizar provisão." : "Erro ao salvar provisão.";
+        $_SESSION['messageType'] = "error";
     }
     
     $stmt->close();
     $conn->close();
+    
+    // Redireciona para evitar reenvio em caso de refresh (POST-Redirect-GET)
+    header("Location: provisao.php");
+    exit;
 }
 
 // Define as datas para filtrar os lançamentos
