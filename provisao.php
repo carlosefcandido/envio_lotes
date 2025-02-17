@@ -9,45 +9,86 @@ verificaLogin();
 $id_usuario = $_SESSION['usuario']['id_usuario'];
 $nome_usuario = $_SESSION['usuario']['nome'];
 
-// Processa o lançamento se o formulário for enviado
+// Inicializa variáveis para edição
+$editing = false;
+$editData = [
+    'id_provisao'      => '',
+    'id_tipo_provisao' => '',
+    'id_banco'         => '',
+    'valor'            => '',
+    'data_folha'       => ''
+];
+
+// Se houver parâmetro "edit" na URL, carrega os dados para edição
+if (isset($_GET['edit']) && !empty($_GET['edit'])) {
+    $edit_id = $_GET['edit'];
+    $conn = conectar();
+    $stmt_edit = $conn->prepare("SELECT * FROM provisao WHERE id_provisao = ? AND id_usuario = ?");
+    $stmt_edit->bind_param("ii", $edit_id, $id_usuario);
+    $stmt_edit->execute();
+    $result_edit = $stmt_edit->get_result();
+    if ($row = $result_edit->fetch_assoc()) {
+        $editing = true;
+        $editData = [
+            'id_provisao'      => $row['id_provisao'],
+            'id_tipo_provisao' => $row['id_tipo_provisao'],
+            'id_banco'         => $row['id_banco'],
+            'valor'            => $row['valor'],
+            'data_folha'       => $row['data_folha']
+        ];
+    }
+    $stmt_edit->close();
+    $conn->close();
+}
+
+// Processa o formulário de inserção/edição
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tipo_provisao'])) {
-    // Agora o valor de tipo_provisao será o ID vindo da tabela tipo_provisao
     $tipo_provisao = $_POST['tipo_provisao'];
     $id_banco = $_POST['id_banco'];
     $valor = $_POST['valor'];
-    // O campo data_folha é opcional, podendo vir vazio
     $data_folha = !empty($_POST['data_folha']) ? $_POST['data_folha'] : null;
     
     $conn = conectar();
-    // Se o tipo for "Folha de Pagamento" (assumindo que seu id na tabela tipo_provisao seja 3)
-    if ($tipo_provisao == 3) {
-        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao, data_folha) VALUES (?, ?, ?, ?, ?)');
-        $stmt->bind_param('idiss', $id_banco, $valor, $id_usuario, $tipo_provisao, $data_folha);
+    
+    if (isset($_POST['id_provisao']) && !empty($_POST['id_provisao'])) {
+        // Atualização
+        $id_provisao = $_POST['id_provisao'];
+        if ($tipo_provisao == 3) {
+            $stmt = $conn->prepare("UPDATE provisao SET id_banco = ?, valor = ?, id_tipo_provisao = ?, data_folha = ? WHERE id_provisao = ? AND id_usuario = ?");
+            $stmt->bind_param("idssii", $id_banco, $valor, $tipo_provisao, $data_folha, $id_provisao, $id_usuario);
+        } else {
+            $stmt = $conn->prepare("UPDATE provisao SET id_banco = ?, valor = ?, id_tipo_provisao = ?, data_folha = NULL WHERE id_provisao = ? AND id_usuario = ?");
+            $stmt->bind_param("idiii", $id_banco, $valor, $tipo_provisao, $id_provisao, $id_usuario);
+        }
     } else {
-        $stmt = $conn->prepare('INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao) VALUES (?, ?, ?, ?)');
-        $stmt->bind_param('idis', $id_banco, $valor, $id_usuario, $tipo_provisao);
+        // Inserção
+        if ($tipo_provisao == 3) {
+            $stmt = $conn->prepare("INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao, data_folha) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("idiss", $id_banco, $valor, $id_usuario, $tipo_provisao, $data_folha);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO provisao (id_banco, valor, id_usuario, id_tipo_provisao) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("idis", $id_banco, $valor, $id_usuario, $tipo_provisao);
+        }
     }
-
+    
     if ($stmt->execute()) {
-        $message = 'Provisão salva com sucesso!';
-        $messageType = 'success';
+        $message = isset($id_provisao) ? "Provisão atualizada com sucesso!" : "Provisão salva com sucesso!";
+        $messageType = "success";
     } else {
-        $message = 'Erro ao salvar provisão.';
-        $messageType = 'error';
+        $message = isset($id_provisao) ? "Erro ao atualizar provisão." : "Erro ao salvar provisão.";
+        $messageType = "error";
     }
     
     $stmt->close();
     $conn->close();
 }
 
-// Define as datas de início e fim para o filtro
+// Define as datas para filtrar os lançamentos
 $data_inicio = $_POST['data_inicio'] ?? date('Y-m-d');
 $data_fim = $_POST['data_fim'] ?? date('Y-m-d');
 
-// Conecta ao banco de dados
+// Consulta dos totais por tipo de provisão (excetuando "Folha")
 $conn = conectar();
-
-// Atualize a consulta dos totais por tipo de provisão:
 $query_totais = "SELECT t.nome_tipo AS tipo_provisao, b.nome_banco, SUM(p.valor) AS total_valor
                  FROM provisao p
                  JOIN banco b ON p.id_banco = b.id_banco
@@ -57,28 +98,26 @@ $query_totais = "SELECT t.nome_tipo AS tipo_provisao, b.nome_banco, SUM(p.valor)
                  AND DATE(p.data_salvo) BETWEEN ? AND ?
                  GROUP BY t.nome_tipo, b.nome_banco";
 $stmt_totais = $conn->prepare($query_totais);
-$stmt_totais->bind_param('iss', $id_usuario, $data_inicio, $data_fim);
+$stmt_totais->bind_param("iss", $id_usuario, $data_inicio, $data_fim);
 $stmt_totais->execute();
 $totais = $stmt_totais->get_result();
 
-// Atualize a consulta das provisões individuais:
-$query_individuais = "SELECT p.data_salvo, p.data_folha, t.nome_tipo AS tipo_provisao, b.nome_banco, p.valor
+// Consulta das provisões individuais
+$query_individuais = "SELECT p.id_provisao, p.data_salvo, p.data_folha, t.nome_tipo AS tipo_provisao, b.nome_banco, p.valor
                       FROM provisao p
                       JOIN banco b ON p.id_banco = b.id_banco
                       JOIN tipo_provisao t ON p.id_tipo_provisao = t.id_tipo_provisao
                       WHERE p.id_usuario = ? 
                       AND DATE(p.data_salvo) BETWEEN ? AND ?";
 $stmt_individuais = $conn->prepare($query_individuais);
-$stmt_individuais->bind_param('iss', $id_usuario, $data_inicio, $data_fim);
+$stmt_individuais->bind_param("iss", $id_usuario, $data_inicio, $data_fim);
 $stmt_individuais->execute();
 $individuais = $stmt_individuais->get_result();
 
-// Fecha a conexão com o banco de dados
 $stmt_totais->close();
 $stmt_individuais->close();
 $conn->close();
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -94,7 +133,7 @@ $conn->close();
             document.body.appendChild(alertBox);
             setTimeout(() => {
                 alertBox.remove();
-            }, 3000); // A mensagem desaparecerá após 3 segundos
+            }, 3000);
         }
     </script>
     <style>
@@ -113,6 +152,17 @@ $conn->close();
         }
         .alert.error {
             background-color: #f44336;
+        }
+        .btn-editar {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-editar:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
@@ -137,17 +187,22 @@ $conn->close();
             <a href="logout.php" class="logout-link">Deslogar</a>
         </div>
 
-        <!-- Formulário para lançamento da provisão -->
-        <h2>Inserir Provisão</h2>
+        <!-- Formulário para lançamento/edição da provisão -->
+        <h2><?php echo $editing ? 'Editar Provisão' : 'Inserir Provisão'; ?></h2>
         <form method="POST" action="provisao.php">
+            <?php if ($editing): ?>
+                <input type="hidden" name="id_provisao" value="<?php echo $editData['id_provisao']; ?>">
+            <?php endif; ?>
+            
             <label for="tipo_provisao">Tipo de Provisão:</label>
             <select name="tipo_provisao" id="tipo_provisao" required>
                 <option value="">Selecione a provisão</option>
                 <?php
                 $conn = conectar();
-                $tipos = $conn->query('SELECT * FROM tipo_provisao');
+                $tipos = $conn->query("SELECT * FROM tipo_provisao");
                 while ($tipo = $tipos->fetch_assoc()) {
-                    echo "<option value='{$tipo['id_tipo_provisao']}'>{$tipo['nome_tipo']}</option>";
+                    $selected = ($editing && $editData['id_tipo_provisao'] == $tipo['id_tipo_provisao']) ? 'selected' : '';
+                    echo "<option value='{$tipo['id_tipo_provisao']}' {$selected}>{$tipo['nome_tipo']}</option>";
                 }
                 $conn->close();
                 ?>
@@ -160,22 +215,23 @@ $conn->close();
                 $conn = conectar();
                 $bancos = $conn->query('SELECT * FROM banco WHERE nome_banco IN ("Itaú", "Bradesco")');
                 while ($banco = $bancos->fetch_assoc()) {
-                    echo "<option value='{$banco['id_banco']}'>{$banco['nome_banco']}</option>";
+                    $selected = ($editing && $editData['id_banco'] == $banco['id_banco']) ? 'selected' : '';
+                    echo "<option value='{$banco['id_banco']}' {$selected}>{$banco['nome_banco']}</option>";
                 }
                 $conn->close();
                 ?>
             </select>
             
             <label for="valor">Valor:</label>
-            <input type="number" step="0.01" name="valor" id="valor" placeholder="Valor" required>
+            <input type="number" step="0.01" name="valor" id="valor" placeholder="Valor" required value="<?php echo $editing ? $editData['valor'] : ''; ?>">
             
             <!-- Campo de data que será exibido apenas para "Folha de Pagamento" -->
-            <div id="campoDataFolha" style="display: none;">
+            <div id="campoDataFolha" style="display: <?php echo ($editing && $editData['id_tipo_provisao'] == 3) ? 'block' : 'none'; ?>;">
                 <label for="data_folha">Data da Folha:</label>
-                <input type="date" name="data_folha" id="data_folha">
+                <input type="date" name="data_folha" id="data_folha" value="<?php echo $editing ? $editData['data_folha'] : ''; ?>">
             </div>
             
-            <button type="submit">Salvar</button>
+            <button type="submit"><?php echo $editing ? 'Atualizar' : 'Salvar'; ?></button>
         </form>
 
         <script>
@@ -230,6 +286,7 @@ $conn->close();
                     <th>Tipo de Provisão</th>
                     <th>Banco</th>
                     <th>Valor</th>
+                    <th>Ação</th>
                 </tr>
             </thead>
             <tbody>
@@ -240,6 +297,9 @@ $conn->close();
                         <td><?php echo htmlspecialchars($row['tipo_provisao']); ?></td>
                         <td><?php echo htmlspecialchars($row['nome_banco']); ?></td>
                         <td>R$ <?php echo number_format($row['valor'], 2, ',', '.'); ?></td>
+                        <td>
+                            <a href="provisao.php?edit=<?php echo $row['id_provisao']; ?>" class="btn-editar">Editar</a>
+                        </td>
                     </tr>
                 <?php endwhile; ?>
             </tbody>
