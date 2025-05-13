@@ -44,16 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 header("location: operador.php");
             }
         } else {
-            echo "<script>alert('O número do lote deve ser único, exceto para tipos PIX e Qr Code -PIX!!!.'); window.location.replace('operador.php');</script>";
+            echo "<script>alert('O número do lote deve ser único!!!.'); window.location.replace('operador.php');</script>";
             
         }
     }
 }
 
 function isLoteUnico($id_tipo, $lote) {
-    if ($id_tipo == 10 || $id_tipo == 11) {
-        return true;
-    }
     $conn = conectar();
     $stmt = $conn->prepare("SELECT COUNT(*) FROM movimento WHERE lote = ?");
     $stmt->bind_param("s", $lote);
